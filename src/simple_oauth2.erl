@@ -220,16 +220,16 @@ post({NetName, Network}, Url, Params) ->
 url_encode(Data) -> url_encode(Data,"").
 url_encode([],Acc) -> list_to_binary(Acc);
 url_encode([{Key,Value}|R],"") ->
-    url_encode(R, edoc_lib:escape_uri(atom_to_list(Key)) ++ "=" ++
-        edoc_lib:escape_uri(binary_to_list(Value)));
+    url_encode(R, escape(atom_to_list(Key)) ++ "=" ++
+        escape(binary_to_list(Value)));
 url_encode([{Key,Value}|R],Acc) ->
-    url_encode(R, Acc ++ "&" ++ edoc_lib:escape_uri(atom_to_list(Key)) ++ "=" ++
-        edoc_lib:escape_uri(binary_to_list(Value))).
+    url_encode(R, Acc ++ "&" ++ escape(atom_to_list(Key)) ++ "=" ++
+        escape(binary_to_list(Value))).
 
 gather_url_get({Path, QueryString}) ->
     iolist_to_binary([Path,
         case lists:flatten([
-            ["&", edoc_lib:escape_uri(atom_to_list(K)), "=", edoc_lib:escape_uri(binary_to_list(V))]
+            ["&", escape(atom_to_list(K)), "=", escape(binary_to_list(V))]
             || {K, V} <- QueryString
         ]) of [] -> []; [_ | QS] -> [$? | QS] end]).
 
@@ -255,3 +255,34 @@ get_profile_info(Network, Auth) ->
                         get_value(field_names, Network))] ++ [{raw, Profile} | Auth]
             end
         end).
+
+%% Taken from https://github.com/mojombo/mustache.erl/blob/master/src/mustache.erl
+escape(HTML) when is_binary(HTML) ->
+  iolist_to_binary(escape(binary_to_list(HTML)));
+escape(HTML) when is_list(HTML) ->
+  escape(HTML, []).
+
+escape([], Acc) ->
+  lists:reverse(Acc);
+escape([$< | Rest], Acc) ->
+  escape(Rest, lists:reverse("&lt;", Acc));
+escape([$> | Rest], Acc) ->
+  escape(Rest, lists:reverse("&gt;", Acc));
+escape([$& | Rest], Acc) ->
+  escape(Rest, lists:reverse("&amp;", Acc));
+escape([X | Rest], Acc) ->
+  escape(Rest, [X | Acc]).
+
+escape_special(String) ->
+    lists:flatten([escape_char(Char) || Char <- String]).
+
+escape_char($\0) -> "\\0";
+escape_char($\n) -> "\\n";
+escape_char($\t) -> "\\t";
+escape_char($\b) -> "\\b";
+escape_char($\r) -> "\\r";
+escape_char($')  -> "\\'";
+escape_char($")  -> "\\\"";
+escape_char($\\) -> "\\\\";
+escape_char(Char) -> Char.
+
